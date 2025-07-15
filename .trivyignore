@@ -1,0 +1,4 @@
+AVD-AWS-0095 # Topics should be encrypted to protect their contents
+AVD-AWS-0132 # Bucket does not encrypt data with a customer managed key
+AVD-AWS-0089 # Bucket has logging disabled
+AVD-AWS-0088 # Bucket does not have encryption enabled

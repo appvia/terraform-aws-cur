@@ -193,6 +193,50 @@ data "aws_iam_policy_document" "cur_bucket_policy" {
     }
   }
 
+  # Allow Cost Optimization Hub service access
+  dynamic "statement" {
+    for_each = var.enable_cost_optimization_hub ? [1] : []
+    content {
+      sid    = "AllowCOHServiceGetBucketAcl"
+      effect = "Allow"
+      principals {
+        type        = "Service"
+        identifiers = ["bcm-data-exports.amazonaws.com"]
+      }
+      actions = [
+        "s3:GetBucketAcl",
+        "s3:GetBucketPolicy"
+      ]
+      resources = [aws_s3_bucket.cur_bucket.arn]
+      condition {
+        test     = "StringEquals"
+        variable = "AWS:SourceAccount"
+        values   = [local.account_id]
+      }
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.enable_cost_optimization_hub ? [1] : []
+    content {
+      sid    = "AllowCOHServicePutObject"
+      effect = "Allow"
+      principals {
+        type        = "Service"
+        identifiers = ["bcm-data-exports.amazonaws.com"]
+      }
+      actions = [
+        "s3:PutObject"
+      ]
+      resources = ["${aws_s3_bucket.cur_bucket.arn}/*"]
+      condition {
+        test     = "StringEquals"
+        variable = "AWS:SourceAccount"
+        values   = [local.account_id]
+      }
+    }
+  }
+
   # Allow replication service access
   dynamic "statement" {
     for_each = var.enable_replication ? [1] : []
@@ -409,6 +453,16 @@ resource "aws_s3_bucket_notification" "cur_bucket_notification" {
     filter_prefix = var.s3_bucket_prefix
   }
 
+  # Additional notification for Cost Optimization Hub files
+  dynamic "topic" {
+    for_each = var.enable_cost_optimization_hub ? [1] : []
+    content {
+      topic_arn     = var.notification_topic_arn != "" ? var.notification_topic_arn : aws_sns_topic.cur_notifications[0].arn
+      events        = ["s3:ObjectCreated:*"]
+      filter_prefix = "${var.coh_s3_prefix}/${local.account_id}"
+    }
+  }
+
   depends_on = [aws_sns_topic_policy.cur_notifications_policy]
 }
 
@@ -429,4 +483,51 @@ resource "aws_cur_report_definition" "cur_report" {
   report_versioning          = var.report_versioning
 
   depends_on = [aws_s3_bucket_policy.cur_bucket_policy]
+}
+
+#
+# Cost Optimization Hub Data Export
+#
+resource "aws_bcmdataexports_export" "cost_optimization_hub" {
+  count = var.enable_cost_optimization_hub ? 1 : 0
+
+  export {
+    name        = var.coh_export_name
+    description = "Cost Optimization Hub Recommendations export for aggregation in CID"
+
+    data_query {
+      query_statement = "SELECT * FROM COST_OPTIMIZATION_RECOMMENDATIONS"
+      table_configurations = {
+        COST_OPTIMIZATION_RECOMMENDATIONS = {
+          FILTER                      = var.coh_filter
+          INCLUDE_ALL_RECOMMENDATIONS = var.coh_include_all_recommendations ? "TRUE" : "FALSE"
+        }
+      }
+    }
+
+    destination_configurations {
+      s3_destination {
+        s3_bucket = aws_s3_bucket.cur_bucket.id
+        s3_prefix = "${var.coh_s3_prefix}/${local.account_id}"
+        s3_region = local.region
+        s3_output_configurations {
+          overwrite   = "OVERWRITE_REPORT"
+          format      = "PARQUET"
+          compression = "PARQUET"
+          output_type = "CUSTOM"
+        }
+      }
+    }
+
+    refresh_cadence {
+      frequency = var.coh_refresh_frequency
+    }
+  }
+
+  depends_on = [aws_s3_bucket_policy.cur_bucket_policy]
+
+  tags = merge(local.tags, {
+    Name = var.coh_export_name
+    Type = "cost-optimization-hub-export"
+  })
 }

@@ -130,3 +130,28 @@ output "replication_configuration" {
     kms_key_id             = var.replication_replica_kms_key_id
   } : {}
 }
+
+
+output "coh_export_arn" {
+  description = "The ARN of the Cost Optimization Hub data export"
+  value       = var.enable_cost_optimization_hub ? aws_bcmdataexports_export.cost_optimization_hub[0].arn : ""
+}
+
+output "coh_s3_prefix" {
+  description = "The S3 prefix for Cost Optimization Hub exports (including account ID)"
+  value       = var.enable_cost_optimization_hub ? "${var.coh_s3_prefix}/${local.account_id}" : ""
+}
+
+output "coh_configuration" {
+  description = "Summary of Cost Optimization Hub configuration"
+  value = var.enable_cost_optimization_hub ? {
+    export_name                 = var.coh_export_name
+    s3_prefix                   = "${var.coh_s3_prefix}/${local.account_id}"
+    filter                      = var.coh_filter
+    include_all_recommendations = var.coh_include_all_recommendations
+    refresh_frequency           = var.coh_refresh_frequency
+    enabled                     = var.enable_cost_optimization_hub
+    } : {
+    enabled = false
+  }
+}

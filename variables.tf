@@ -10,6 +10,40 @@ variable "additional_schema_elements" {
   default     = ["RESOURCES"]
 }
 
+variable "coh_export_name" {
+  description = "Name for the Cost Optimization Hub data export"
+  type        = string
+  default     = "cost-optimization-hub-export"
+}
+
+variable "coh_include_all_recommendations" {
+  description = "Whether to include all COH recommendations (true) or only highest savings per resource (false)"
+  type        = bool
+  default     = false
+}
+
+variable "coh_refresh_frequency" {
+  description = "Frequency for Cost Optimization Hub data export refresh"
+  type        = string
+  default     = "SYNCHRONOUS"
+  validation {
+    condition     = contains(["SYNCHRONOUS"], var.coh_refresh_frequency)
+    error_message = "COH refresh frequency must be SYNCHRONOUS."
+  }
+}
+
+variable "coh_s3_prefix" {
+  description = "S3 prefix for Cost Optimization Hub exports"
+  type        = string
+  default     = "coh"
+}
+
+variable "coh_filter" {
+  description = "Filter configuration for Cost Optimization Hub recommendations"
+  type        = string
+  default     = "{}"
+}
+
 variable "compression" {
   description = "The compression type for CUR report"
   type        = string
@@ -22,6 +56,12 @@ variable "compression" {
 
 variable "enable_bucket_notification" {
   description = "Whether to enable bucket notification for new CUR files"
+  type        = bool
+  default     = false
+}
+
+variable "enable_cost_optimization_hub" {
+  description = "Whether to enable Cost Optimization Hub data exports"
   type        = bool
   default     = false
 }

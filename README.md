@@ -7,9 +7,10 @@ This Terraform module provisions an AWS Cost and Usage Report (CUR) with compreh
 ## Features
 
 - **Complete CUR Setup**: Creates and configures AWS Cost and Usage Reports
+- **Cost Optimization Hub Integration**: Export Cost Optimization Hub recommendations to the same S3 bucket
 - **Secure S3 Storage**: S3 bucket with KMS encryption, versioning, and public access blocking
 - **Cross-Account Replication**: Optional S3 bucket replication to another AWS account
-- **Notifications**: Optional SNS notifications for new CUR files
+- **Notifications**: Optional SNS notifications for new CUR files and COH recommendations
 - **Access Control**: Configurable cross-account access policies
 - **Security Best Practices**: Enforced encryption, secure policies, and access controls
 
@@ -84,7 +85,7 @@ module "cur_report" {
 }
 ```
 
-### Advanced Usage with Cross-Account Replication
+### Advanced Usage with Cross-Account Replication and Cost Optimization Hub
 
 ```hcl
 module "cur_report" {
@@ -94,6 +95,12 @@ module "cur_report" {
   s3_bucket_name = "my-organization-cur-reports"
   report_name    = "my-organization-cur"
 
+  # Enable Cost Optimization Hub exports
+  enable_cost_optimization_hub     = true
+  coh_export_name                  = "org-cost-optimization-export"
+  coh_s3_prefix                    = "coh"
+  coh_include_all_recommendations  = false  # Only highest savings per resource
+
   # Enable cross-account replication
   enable_replication                   = true
   replication_destination_bucket       = "arn:aws:s3:::backup-account-cur-reports"
@@ -102,14 +109,8 @@ module "cur_report" {
   replication_storage_class           = "STANDARD_IA"
   replication_replica_kms_key_id      = "arn:aws:kms:eu-west-1:123456789012:key/12345678-1234-1234-1234-123456789012"
 
-  # Enable notifications
+  # Enable notifications (will notify for both CUR and COH files)
   enable_bucket_notification = true
-
-  # Cross-account access
-  allowed_account_ids = [
-    "123456789012",  # Finance account
-    "987654321098"   # Analytics account
-  ]
 
   tags = {
     Environment = "production"
@@ -174,15 +175,22 @@ The module creates the following AWS resources:
 
 2. **Billing Permissions**: The account creating the CUR must be the management account (payer account) in an AWS Organization or the account responsible for billing.
 
-3. **Replication Requirements**:
+3. **Cost Optimization Hub Prerequisites**:
+   - Cost Optimization Hub must be enabled in your AWS account
+   - AWS Compute Optimizer must be enabled to receive rightsizing recommendations
+   - Data Exports service-linked role will be created automatically if needed
+
+4. **Replication Requirements**:
    - Source bucket must have versioning enabled
    - Destination bucket must exist and have versioning enabled
    - Destination bucket must be in a different region
+   - Both CUR and COH data will be replicated if replication is enabled
 
-4. **Cost Considerations**:
-   - S3 storage costs for CUR data
+5. **Cost Considerations**:
+   - S3 storage costs for CUR and COH data
    - Cross-region replication costs
    - KMS encryption costs
+   - Cost Optimization Hub is free, but exports incur standard S3 storage costs
 
 ## Examples
 

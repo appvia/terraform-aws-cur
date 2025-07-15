@@ -1,0 +1,704 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "AWS Cost and Usage Report (CUR) CloudFormation Template - Converted from Terraform Module"
+
+Parameters:
+  # Required Parameters
+  S3BucketName:
+    Type: String
+    Description: The name of the S3 bucket where CUR reports will be stored
+    AllowedPattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    ConstraintDescription: Must be a valid S3 bucket name
+
+  ReportName:
+    Type: String
+    Description: The name of the CUR report
+    Default: cost-and-usage-report
+    AllowedPattern: '^[A-Za-z0-9_\-\.]+$'
+
+  # CUR Configuration Parameters
+  TimeUnit:
+    Type: String
+    Description: The time unit for CUR report generation
+    Default: DAILY
+    AllowedValues: [HOURLY, DAILY]
+
+  Format:
+    Type: String
+    Description: The format for CUR report
+    Default: Parquet
+    AllowedValues: [textORcsv, Parquet]
+
+  Compression:
+    Type: String
+    Description: The compression type for CUR report
+    Default: GZIP
+    AllowedValues: [ZIP, GZIP, Parquet]
+
+  S3BucketPrefix:
+    Type: String
+    Description: The prefix for CUR files in the S3 bucket
+    Default: cur2
+
+  ReportVersioning:
+    Type: String
+    Description: Whether to overwrite the previous version of the report or to create new reports
+    Default: OVERWRITE_REPORT
+    AllowedValues: [CREATE_NEW_REPORT, OVERWRITE_REPORT]
+
+  RefreshClosedReports:
+    Type: String
+    Description: Whether to refresh reports after they have been finalized
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+  # Feature Enable/Disable Parameters
+  EnableKMSEncryption:
+    Type: String
+    Description: Whether to enable KMS encryption for the S3 bucket
+    Default: "false"
+    AllowedValues: ["true", "false"]
+
+  EnableVersioning:
+    Type: String
+    Description: Whether to enable versioning for the S3 bucket
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+  EnablePublicAccessBlock:
+    Type: String
+    Description: Whether to enable public access block for the S3 bucket
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+  EnableReplication:
+    Type: String
+    Description: Whether to enable cross-account S3 bucket replication
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+  EnableCostOptimizationHub:
+    Type: String
+    Description: Whether to enable Cost Optimization Hub data exports
+    Default: "false"
+    AllowedValues: ["true", "false"]
+
+  # KMS Parameters
+  KMSKeyId:
+    Type: String
+    Description: The KMS key ID for S3 bucket encryption. If not provided, a new key will be created
+    Default: ""
+
+  KMSKeyDeletionWindow:
+    Type: Number
+    Description: The waiting period, specified in number of days, after which the KMS key is deleted
+    Default: 7
+    MinValue: 7
+    MaxValue: 30
+
+  # Replication Parameters
+  ReplicationDestinationBucket:
+    Type: String
+    Description: The destination bucket ARN for replication
+    Default: ""
+
+  ReplicationDestinationAccountId:
+    Type: String
+    Description: The AWS account ID of the destination bucket for replication
+    Default: ""
+    AllowedPattern: "^[0-9]{12}$|^$"
+
+  ReplicationDestinationRegion:
+    Type: String
+    Description: The AWS region of the destination bucket for replication
+    Default: ""
+
+  ReplicationPrefix:
+    Type: String
+    Description: Object prefix for replication rule
+    Default: ""
+
+  ReplicationStorageClass:
+    Type: String
+    Description: Storage class for replicated objects
+    Default: STANDARD
+    AllowedValues:
+      [
+        STANDARD,
+        REDUCED_REDUNDANCY,
+        STANDARD_IA,
+        ONEZONE_IA,
+        INTELLIGENT_TIERING,
+        GLACIER,
+        DEEP_ARCHIVE,
+        OUTPOSTS,
+      ]
+
+  ReplicationReplicaKMSKeyId:
+    Type: String
+    Description: KMS key ID for encryption of replicated objects
+    Default: ""
+
+  # Cost Optimization Hub Parameters
+  COHExportName:
+    Type: String
+    Description: Name for the Cost Optimization Hub data export
+    Default: cost-optimization-hub-export
+
+  COHS3Prefix:
+    Type: String
+    Description: S3 prefix for Cost Optimization Hub exports
+    Default: coh
+
+  COHFilter:
+    Type: String
+    Description: Filter configuration for Cost Optimization Hub recommendations
+    Default: "{}"
+
+  COHIncludeAllRecommendations:
+    Type: String
+    Description: Whether to include all COH recommendations (true) or only highest savings per resource (false)
+    Default: "false"
+    AllowedValues: ["true", "false"]
+
+  COHRefreshFrequency:
+    Type: String
+    Description: Frequency for Cost Optimization Hub data export refresh
+    Default: SYNCHRONOUS
+    AllowedValues: [SYNCHRONOUS]
+
+  # Schema and Artifacts
+  AdditionalSchemaElements:
+    Type: CommaDelimitedList
+    Description: A list of additional schema elements for CUR report
+    Default: "RESOURCES"
+
+  AdditionalArtifacts:
+    Type: CommaDelimitedList
+    Description: A list of additional artifacts to include in CUR report
+    Default: ""
+
+  # Tags
+  Environment:
+    Type: String
+    Description: Environment tag
+    Default: "Red"
+
+  Project:
+    Type: String
+    Description: Project tag
+    Default: ""
+
+  Owner:
+    Type: String
+    Description: Owner tag
+    Default: "Finops"
+
+Conditions:
+  EnableKMSEncryptionCondition: !Equals [!Ref EnableKMSEncryption, "true"]
+  EnableVersioningCondition: !Equals [!Ref EnableVersioning, "true"]
+  EnablePublicAccessBlockCondition:
+    !Equals [!Ref EnablePublicAccessBlock, "true"]
+  EnableReplicationCondition: !Equals [!Ref EnableReplication, "true"]
+  EnableCostOptimizationHubCondition:
+    !Equals [!Ref EnableCostOptimizationHub, "true"]
+  CreateKMSKey: !And
+    - !Equals [!Ref EnableKMSEncryption, "true"]
+    - !Equals [!Ref KMSKeyId, ""]
+  UseExistingKMSKey: !And
+    - !Equals [!Ref EnableKMSEncryption, "true"]
+    - !Not [!Equals [!Ref KMSKeyId, ""]]
+  HasReplicationKMSKey: !Not [!Equals [!Ref ReplicationReplicaKMSKeyId, ""]]
+  HasReplicationPrefix: !Not [!Equals [!Ref ReplicationPrefix, ""]]
+  HasEnvironmentTag: !Not [!Equals [!Ref Environment, ""]]
+  HasProjectTag: !Not [!Equals [!Ref Project, ""]]
+  HasOwnerTag: !Not [!Equals [!Ref Owner, ""]]
+
+Resources:
+  # KMS Key for S3 Encryption
+  CURS3KMSKey:
+    Type: AWS::KMS::Key
+    Condition: CreateKMSKey
+    Properties:
+      Description: KMS key for Cost and Usage Report S3 bucket encryption
+      KeyRotationStatus: true
+      PendingWindowInDays: !Ref KMSKeyDeletionWindow
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnableRootAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: AllowCURService
+            Effect: Allow
+            Principal:
+              Service: billingreports.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: "*"
+          - Sid: AllowS3Service
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: "*"
+          - !If
+            - EnableReplicationCondition
+            - Sid: AllowReplicationDestinationAccess
+              Effect: Allow
+              Principal:
+                AWS: !Sub "arn:aws:iam::${ReplicationDestinationAccountId}:root"
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: "*"
+            - !Ref "AWS::NoValue"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ReportName}-s3-key"
+        - !If
+          - HasEnvironmentTag
+          - Key: Environment
+            Value: !Ref Environment
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasProjectTag
+          - Key: Project
+            Value: !Ref Project
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasOwnerTag
+          - Key: Owner
+            Value: !Ref Owner
+          - !Ref "AWS::NoValue"
+
+  # KMS Key Alias
+  CURS3KMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Condition: CreateKMSKey
+    Properties:
+      AliasName: !Sub "alias/${ReportName}-s3-key"
+      TargetKeyId: !Ref CURS3KMSKey
+
+  # S3 Bucket for CUR Storage
+  CURBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      VersioningConfiguration:
+        Status: !If [EnableVersioningCondition, Enabled, Suspended]
+      BucketEncryption: !If
+        - EnableKMSEncryptionCondition
+        - ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: aws:kms
+                KMSMasterKeyID: !If
+                  - UseExistingKMSKey
+                  - !Ref KMSKeyId
+                  - !GetAtt CURS3KMSKey.Arn
+              BucketKeyEnabled: true
+        - !Ref "AWS::NoValue"
+      PublicAccessBlockConfiguration: !If
+        - EnablePublicAccessBlockCondition
+        - BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        - !Ref "AWS::NoValue"
+      ReplicationConfiguration: !If
+        - EnableReplicationCondition
+        - Role: !GetAtt ReplicationRole.Arn
+          Rules:
+            - Id: !Sub "${ReportName}-replication-rule"
+              Status: Enabled
+              Prefix:
+                !If [
+                  HasReplicationPrefix,
+                  !Ref ReplicationPrefix,
+                  !Ref "AWS::NoValue",
+                ]
+              DeleteMarkerReplication:
+                Status: Enabled
+              Destination:
+                Bucket: !Ref ReplicationDestinationBucket
+                StorageClass: !Ref ReplicationStorageClass
+                EncryptionConfiguration: !If
+                  - HasReplicationKMSKey
+                  - ReplicaKmsKeyID: !Ref ReplicationReplicaKMSKeyId
+                  - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+      Tags:
+        - Key: Name
+          Value: !Ref S3BucketName
+        - !If
+          - HasEnvironmentTag
+          - Key: Environment
+            Value: !Ref Environment
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasProjectTag
+          - Key: Project
+            Value: !Ref Project
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasOwnerTag
+          - Key: Owner
+            Value: !Ref Owner
+          - !Ref "AWS::NoValue"
+
+  # S3 Bucket Policy
+  CURBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CURBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCURServiceGetBucketAcl
+            Effect: Allow
+            Principal:
+              Service: billingreports.amazonaws.com
+            Action:
+              - s3:GetBucketAcl
+              - s3:GetBucketPolicy
+            Resource: !GetAtt CURBucket.Arn
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cur:us-east-1:${AWS::AccountId}:definition/*"
+                "AWS:SourceAccount": !Ref "AWS::AccountId"
+          - Sid: AllowCURServicePutObject
+            Effect: Allow
+            Principal:
+              Service: billingreports.amazonaws.com
+            Action:
+              - s3:PutObject
+            Resource: !Sub "${CURBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cur:us-east-1:${AWS::AccountId}:definition/*"
+                "AWS:SourceAccount": !Ref "AWS::AccountId"
+          - !If
+            - EnableCostOptimizationHubCondition
+            - Sid: AllowCOHServiceGetBucketAcl
+              Effect: Allow
+              Principal:
+                Service: bcm-data-exports.amazonaws.com
+              Action:
+                - s3:GetBucketAcl
+                - s3:GetBucketPolicy
+              Resource: !GetAtt CURBucket.Arn
+              Condition:
+                StringEquals:
+                  "AWS:SourceAccount": !Ref "AWS::AccountId"
+            - !Ref "AWS::NoValue"
+          - !If
+            - EnableCostOptimizationHubCondition
+            - Sid: AllowCOHServicePutObject
+              Effect: Allow
+              Principal:
+                Service: bcm-data-exports.amazonaws.com
+              Action:
+                - s3:PutObject
+              Resource: !Sub "${CURBucket.Arn}/*"
+              Condition:
+                StringEquals:
+                  "AWS:SourceAccount": !Ref "AWS::AccountId"
+            - !Ref "AWS::NoValue"
+          - !If
+            - EnableReplicationCondition
+            - Sid: AllowReplicationServiceAccess
+              Effect: Allow
+              Principal:
+                AWS: !GetAtt ReplicationRole.Arn
+              Action:
+                - s3:GetObjectVersionForReplication
+                - s3:GetObjectVersionAcl
+                - s3:GetObjectVersionTagging
+              Resource: !Sub "${CURBucket.Arn}/*"
+            - !Ref "AWS::NoValue"
+          - !If
+            - EnableReplicationCondition
+            - Sid: AllowReplicationServiceList
+              Effect: Allow
+              Principal:
+                AWS: !GetAtt ReplicationRole.Arn
+              Action:
+                - s3:ListBucket
+              Resource: !GetAtt CURBucket.Arn
+            - !Ref "AWS::NoValue"
+
+  # IAM Role for Replication
+  ReplicationRole:
+    Type: AWS::IAM::Role
+    Condition: EnableReplicationCondition
+    Properties:
+      RoleName: !Sub "${ReportName}-replication-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ReportName}-replication-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObjectVersionForReplication
+                  - s3:GetObjectVersionAcl
+                  - s3:GetObjectVersionTagging
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt CURBucket.Arn
+                  - !Sub "${CURBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ReplicateObject
+                  - s3:ReplicateDelete
+                  - s3:ReplicateTags
+                Resource: !Sub "${ReplicationDestinationBucket}/*"
+              - !If
+                - EnableKMSEncryptionCondition
+                - Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                    - kms:GenerateDataKey
+                  Resource: !If
+                    - UseExistingKMSKey
+                    - !Ref KMSKeyId
+                    - !GetAtt CURS3KMSKey.Arn
+                - !Ref "AWS::NoValue"
+              - !If
+                - HasReplicationKMSKey
+                - Effect: Allow
+                  Action:
+                    - kms:Encrypt
+                    - kms:GenerateDataKey
+                  Resource: !Ref ReplicationReplicaKMSKeyId
+                - !Ref "AWS::NoValue"
+      Tags:
+        - !If
+          - HasEnvironmentTag
+          - Key: Environment
+            Value: !Ref Environment
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasProjectTag
+          - Key: Project
+            Value: !Ref Project
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasOwnerTag
+          - Key: Owner
+            Value: !Ref Owner
+          - !Ref "AWS::NoValue"
+
+  # Cost and Usage Report Definition
+  CURReportDefinition:
+    Type: AWS::CUR::ReportDefinition
+    DependsOn: CURBucketPolicy
+    Properties:
+      ReportName: !Ref ReportName
+      TimeUnit: !Ref TimeUnit
+      Format: !Ref Format
+      Compression: !Ref Compression
+      AdditionalSchemaElements: !Ref AdditionalSchemaElements
+      S3Bucket: !Ref CURBucket
+      S3Prefix: !Ref S3BucketPrefix
+      S3Region: !Ref "AWS::Region"
+      AdditionalArtifacts: !Ref AdditionalArtifacts
+      RefreshClosedReports: !Ref RefreshClosedReports
+      ReportVersioning: !Ref ReportVersioning
+
+  # Cost Optimization Hub Data Export
+  CostOptimizationHubExport:
+    Type: AWS::BCMDataExports::Export
+    Condition: EnableCostOptimizationHubCondition
+    DependsOn: CURBucketPolicy
+    Properties:
+      Export:
+        Name: !Ref COHExportName
+        Description: Cost Optimization Hub Recommendations export for aggregation in CID
+        DataQuery:
+          QueryStatement: SELECT * FROM COST_OPTIMIZATION_RECOMMENDATIONS
+          TableConfigurations:
+            COST_OPTIMIZATION_RECOMMENDATIONS:
+              FILTER: !Ref COHFilter
+              INCLUDE_ALL_RECOMMENDATIONS:
+                !If [
+                  EnableCostOptimizationHubCondition,
+                  !Ref COHIncludeAllRecommendations,
+                  "FALSE",
+                ]
+        DestinationConfigurations:
+          S3Destination:
+            S3Bucket: !Ref CURBucket
+            S3Prefix: !Sub "${COHS3Prefix}/${AWS::AccountId}"
+            S3Region: !Ref "AWS::Region"
+            S3OutputConfigurations:
+              Overwrite: OVERWRITE_REPORT
+              Format: PARQUET
+              Compression: PARQUET
+              OutputType: CUSTOM
+        RefreshCadence:
+          Frequency: !Ref COHRefreshFrequency
+      Tags:
+        - Key: Name
+          Value: !Ref COHExportName
+        - Key: Type
+          Value: cost-optimization-hub-export
+        - !If
+          - HasEnvironmentTag
+          - Key: Environment
+            Value: !Ref Environment
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasProjectTag
+          - Key: Project
+            Value: !Ref Project
+          - !Ref "AWS::NoValue"
+        - !If
+          - HasOwnerTag
+          - Key: Owner
+            Value: !Ref Owner
+          - !Ref "AWS::NoValue"
+
+Outputs:
+  CURReportName:
+    Description: The name of the CUR report
+    Value: !Ref CURReportDefinition
+    Export:
+      Name: !Sub "${AWS::StackName}-CURReportName"
+
+  CURReportArn:
+    Description: The ARN of the CUR report
+    Value: !Sub "arn:aws:cur:us-east-1:${AWS::AccountId}:definition/${CURReportDefinition}"
+    Export:
+      Name: !Sub "${AWS::StackName}-CURReportArn"
+
+  S3BucketId:
+    Description: The ID of the S3 bucket
+    Value: !Ref CURBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-S3BucketId"
+
+  S3BucketArn:
+    Description: The ARN of the S3 bucket
+    Value: !GetAtt CURBucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-S3BucketArn"
+
+  S3BucketDomainName:
+    Description: The bucket domain name
+    Value: !GetAtt CURBucket.DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-S3BucketDomainName"
+
+  S3BucketRegionalDomainName:
+    Description: The bucket region-specific domain name
+    Value: !GetAtt CURBucket.RegionalDomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-S3BucketRegionalDomainName"
+
+  S3BucketRegion:
+    Description: The AWS region this bucket resides in
+    Value: !Ref "AWS::Region"
+    Export:
+      Name: !Sub "${AWS::StackName}-S3BucketRegion"
+
+  KMSKeyId:
+    Condition: CreateKMSKey
+    Description: The globally unique identifier for the KMS key
+    Value: !Ref CURS3KMSKey
+    Export:
+      Name: !Sub "${AWS::StackName}-KMSKeyId"
+
+  KMSKeyArn:
+    Condition: CreateKMSKey
+    Description: The Amazon Resource Name (ARN) of the KMS key
+    Value: !GetAtt CURS3KMSKey.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-KMSKeyArn"
+
+  KMSAliasArn:
+    Condition: CreateKMSKey
+    Description: The Amazon Resource Name (ARN) of the key alias
+    Value: !Ref CURS3KMSKeyAlias
+    Export:
+      Name: !Sub "${AWS::StackName}-KMSAliasArn"
+
+  KMSAliasName:
+    Condition: CreateKMSKey
+    Description: The display name of the alias
+    Value: !Sub "alias/${ReportName}-s3-key"
+    Export:
+      Name: !Sub "${AWS::StackName}-KMSAliasName"
+
+  ReplicationRoleArn:
+    Condition: EnableReplicationCondition
+    Description: The ARN of the replication IAM role
+    Value: !GetAtt ReplicationRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ReplicationRoleArn"
+
+  COHExportArn:
+    Condition: EnableCostOptimizationHubCondition
+    Description: The ARN of the Cost Optimization Hub export
+    Value: !Ref CostOptimizationHubExport
+    Export:
+      Name: !Sub "${AWS::StackName}-COHExportArn"
+
+  CURConfiguration:
+    Description: Summary of CUR configuration
+    Value: !Sub |
+      {
+        "report_name": "${CURReportDefinition}",
+        "time_unit": "${TimeUnit}",
+        "format": "${Format}",
+        "compression": "${Compression}",
+        "s3_bucket": "${CURBucket}",
+        "s3_prefix": "${S3BucketPrefix}",
+        "s3_region": "${AWS::Region}",
+        "refresh_closed_reports": "${RefreshClosedReports}",
+        "report_versioning": "${ReportVersioning}"
+      }
+    Export:
+      Name: !Sub "${AWS::StackName}-CURConfiguration"
+
+  S3Configuration:
+    Description: Summary of S3 bucket configuration
+    Value: !Sub |
+      {
+        "bucket_name": "${CURBucket}",
+        "bucket_arn": "${CURBucket.Arn}",
+        "versioning_enabled": "${EnableVersioning}",
+        "encryption_enabled": "${EnableKMSEncryption}",
+        "replication_enabled": "${EnableReplication}",
+        "public_access_blocked": "${EnablePublicAccessBlock}"
+      }
+    Export:
+      Name: !Sub "${AWS::StackName}-S3Configuration"
+
+  COHConfiguration:
+    Condition: EnableCostOptimizationHubCondition
+    Description: Summary of Cost Optimization Hub configuration
+    Value: !Sub |
+      {
+        "enabled": "${EnableCostOptimizationHub}",
+        "export_name": "${COHExportName}",
+        "s3_prefix": "${COHS3Prefix}",
+        "filter": "${COHFilter}",
+        "include_all_recommendations": "${COHIncludeAllRecommendations}",
+        "refresh_frequency": "${COHRefreshFrequency}"
+      }
+    Export:
+      Name: !Sub "${AWS::StackName}-COHConfiguration"

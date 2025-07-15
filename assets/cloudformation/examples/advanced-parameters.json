@@ -1,0 +1,94 @@
+[
+  {
+    "ParameterKey": "S3BucketName",
+    "ParameterValue": "enterprise-cur-reports-REPLACE-WITH-ACCOUNT-ID"
+  },
+  {
+    "ParameterKey": "ReportName",
+    "ParameterValue": "enterprise-cost-analysis"
+  },
+  {
+    "ParameterKey": "TimeUnit",
+    "ParameterValue": "DAILY"
+  },
+  {
+    "ParameterKey": "Format",
+    "ParameterValue": "Parquet"
+  },
+  {
+    "ParameterKey": "Compression",
+    "ParameterValue": "Parquet"
+  },
+  {
+    "ParameterKey": "S3BucketPrefix",
+    "ParameterValue": "cur-reports"
+  },
+  {
+    "ParameterKey": "EnableKMSEncryption",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableVersioning",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnablePublicAccessBlock",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableReplication",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "ReplicationDestinationBucket",
+    "ParameterValue": "arn:aws:s3:::backup-account-cur-reports-REPLACE-WITH-DEST-ACCOUNT-ID"
+  },
+  {
+    "ParameterKey": "ReplicationDestinationAccountId",
+    "ParameterValue": "REPLACE-WITH-DESTINATION-ACCOUNT-ID"
+  },
+  {
+    "ParameterKey": "ReplicationDestinationRegion",
+    "ParameterValue": "eu-west-1"
+  },
+  {
+    "ParameterKey": "ReplicationStorageClass",
+    "ParameterValue": "STANDARD_IA"
+  },
+  {
+    "ParameterKey": "EnableCostOptimizationHub",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "COHExportName",
+    "ParameterValue": "enterprise-optimization-recommendations"
+  },
+  {
+    "ParameterKey": "COHS3Prefix",
+    "ParameterValue": "coh"
+  },
+  {
+    "ParameterKey": "COHIncludeAllRecommendations",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "AdditionalSchemaElements",
+    "ParameterValue": "RESOURCES,SPLIT_COST_ALLOCATION_DATA"
+  },
+  {
+    "ParameterKey": "AdditionalArtifacts",
+    "ParameterValue": "ATHENA,QUICKSIGHT,REDSHIFT"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "production"
+  },
+  {
+    "ParameterKey": "Project",
+    "ParameterValue": "finops-data-lake"
+  },
+  {
+    "ParameterKey": "Owner",
+    "ParameterValue": "finance-team"
+  }
+]

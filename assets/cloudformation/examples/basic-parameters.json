@@ -1,0 +1,62 @@
+[
+  {
+    "ParameterKey": "S3BucketName",
+    "ParameterValue": "my-organization-cur-reports-REPLACE-WITH-ACCOUNT-ID"
+  },
+  {
+    "ParameterKey": "ReportName",
+    "ParameterValue": "my-organization-cost-report"
+  },
+  {
+    "ParameterKey": "TimeUnit",
+    "ParameterValue": "DAILY"
+  },
+  {
+    "ParameterKey": "Format",
+    "ParameterValue": "Parquet"
+  },
+  {
+    "ParameterKey": "Compression",
+    "ParameterValue": "Parquet"
+  },
+  {
+    "ParameterKey": "EnableKMSEncryption",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableVersioning",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnablePublicAccessBlock",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableReplication",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableCostOptimizationHub",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "AdditionalSchemaElements",
+    "ParameterValue": "RESOURCES"
+  },
+  {
+    "ParameterKey": "AdditionalArtifacts",
+    "ParameterValue": "ATHENA,QUICKSIGHT"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "production"
+  },
+  {
+    "ParameterKey": "Project",
+    "ParameterValue": "cost-management"
+  },
+  {
+    "ParameterKey": "Owner",
+    "ParameterValue": "finance-team"
+  }
+]
