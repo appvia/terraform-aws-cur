@@ -150,3 +150,22 @@ terraform destroy
 ```
 
 **Note**: S3 bucket will only be deleted if empty. You may need to manually empty the bucket first if it contains data.
+
+<!-- BEGIN_TF_DOCS -->
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0 |
+
+## Inputs
+
+No inputs.
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_data_exports_summary"></a> [data\_exports\_summary](#output\_data\_exports\_summary) | Summary of enabled data exports |
+| <a name="output_s3_bucket_structure"></a> [s3\_bucket\_structure](#output\_s3\_bucket\_structure) | S3 bucket structure showing where data will be stored |
+<!-- END_TF_DOCS -->

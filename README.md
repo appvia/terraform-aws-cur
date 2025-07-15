@@ -311,8 +311,14 @@ For issues and questions:
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to assign to resources | `map(string)` | n/a | yes |
 | <a name="input_additional_artifacts"></a> [additional\_artifacts](#input\_additional\_artifacts) | A list of additional artifacts to include in CUR report | `list(string)` | <pre>[<br/>  "REDSHIFT",<br/>  "QUICKSIGHT",<br/>  "ATHENA"<br/>]</pre> | no |
 | <a name="input_additional_schema_elements"></a> [additional\_schema\_elements](#input\_additional\_schema\_elements) | A list of additional schema elements for CUR report | `list(string)` | <pre>[<br/>  "RESOURCES"<br/>]</pre> | no |
+| <a name="input_coh_export_name"></a> [coh\_export\_name](#input\_coh\_export\_name) | Name for the Cost Optimization Hub data export | `string` | `"cost-optimization-hub-export"` | no |
+| <a name="input_coh_filter"></a> [coh\_filter](#input\_coh\_filter) | Filter configuration for Cost Optimization Hub recommendations | `string` | `"{}"` | no |
+| <a name="input_coh_include_all_recommendations"></a> [coh\_include\_all\_recommendations](#input\_coh\_include\_all\_recommendations) | Whether to include all COH recommendations (true) or only highest savings per resource (false) | `bool` | `false` | no |
+| <a name="input_coh_refresh_frequency"></a> [coh\_refresh\_frequency](#input\_coh\_refresh\_frequency) | Frequency for Cost Optimization Hub data export refresh | `string` | `"SYNCHRONOUS"` | no |
+| <a name="input_coh_s3_prefix"></a> [coh\_s3\_prefix](#input\_coh\_s3\_prefix) | S3 prefix for Cost Optimization Hub exports | `string` | `"coh"` | no |
 | <a name="input_compression"></a> [compression](#input\_compression) | The compression type for CUR report | `string` | `"GZIP"` | no |
 | <a name="input_enable_bucket_notification"></a> [enable\_bucket\_notification](#input\_enable\_bucket\_notification) | Whether to enable bucket notification for new CUR files | `bool` | `false` | no |
+| <a name="input_enable_cost_optimization_hub"></a> [enable\_cost\_optimization\_hub](#input\_enable\_cost\_optimization\_hub) | Whether to enable Cost Optimization Hub data exports | `bool` | `false` | no |
 | <a name="input_enable_kms_encryption"></a> [enable\_kms\_encryption](#input\_enable\_kms\_encryption) | Whether to enable KMS encryption for the S3 bucket | `bool` | `false` | no |
 | <a name="input_enable_public_access_block"></a> [enable\_public\_access\_block](#input\_enable\_public\_access\_block) | Whether to enable public access block for the S3 bucket | `bool` | `true` | no |
 | <a name="input_enable_replication"></a> [enable\_replication](#input\_enable\_replication) | Whether to enable cross-account S3 bucket replication | `bool` | `true` | no |
@@ -338,6 +344,9 @@ For issues and questions:
 
 | Name | Description |
 |------|-------------|
+| <a name="output_coh_configuration"></a> [coh\_configuration](#output\_coh\_configuration) | Summary of Cost Optimization Hub configuration |
+| <a name="output_coh_export_arn"></a> [coh\_export\_arn](#output\_coh\_export\_arn) | The ARN of the Cost Optimization Hub data export |
+| <a name="output_coh_s3_prefix"></a> [coh\_s3\_prefix](#output\_coh\_s3\_prefix) | The S3 prefix for Cost Optimization Hub exports (including account ID) |
 | <a name="output_cur_configuration"></a> [cur\_configuration](#output\_cur\_configuration) | Summary of CUR configuration |
 | <a name="output_cur_report_arn"></a> [cur\_report\_arn](#output\_cur\_report\_arn) | The ARN of the CUR report |
 | <a name="output_cur_report_name"></a> [cur\_report\_name](#output\_cur\_report\_name) | The name of the CUR report |

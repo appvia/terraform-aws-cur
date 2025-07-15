@@ -1,0 +1,8 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Conditions:
+  TestCondition: !Condition OtherCondition
+  OtherCondition: !Equals [!Ref EnableTest, "true"]
+Resources:
+  TestResource:
+    Type: AWS::S3::Bucket
+    Condition: TestCondition
