@@ -6,3 +6,9 @@ Resources:
   TestResource:
     Type: AWS::S3::Bucket
     Condition: TestCondition
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
